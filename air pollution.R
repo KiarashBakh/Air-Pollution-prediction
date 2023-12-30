@@ -1,7 +1,10 @@
 library(data.table)
-library(ggplot2)
+library(DMwR2)
 library(dplyr)
+library(ggplot2)
 library(tidyr)
+library(zoo)
+
 
 setwd("D:/Data Science/Projects/Kaggel/Air Polution")
 data <- read.csv("air_pollution.csv")
@@ -69,23 +72,79 @@ city_missing$missing_percent <- round(city_missing$missing_count / 7 * 100, 2)
 
 
 ### Modeling
-# outliers handling with IQR (nullify)
-...
+# Selecting relevant features and changing X20.. to 20..
+features <- seq(from = 2017, to = 2023)
+colnames(train)[3:ncol(train)] <- as.character(features)
 
-# use moving average for every NA
-...
+# change Invalid Number to NA
+train[, 3:ncol(train)] <- lapply(train[, 3:ncol(train)], as.character)
+train[, 3:ncol(train)][train[, 3:ncol(train)] == "Invalid Number"] <- NA
 
-# use stationary techniques
-...
+
+## outliers handling with IQR (nullify)
+outlier_detection <- function(year) {
+  column <- as.numeric(train[[year]])
+  # Calculate lower and upper bounds
+  lowband <- mean(column, na.rm = TRUE) - 3 * sd(column, na.rm = TRUE)
+  upperband <- mean(column, na.rm = TRUE) + 3 * sd(column, na.rm = TRUE)  
+  # Replace outliers with NA
+  column[which(column > upperband | column < lowband)] <- NA
+  return(column)
+}
+
+# Loop through each feature and apply outlier_detection function
+for (i in features) {
+  train[[i]] <- outlier_detection(i)
+}
+colSums(is.na(train)) 
+
 
 # Pivot data for each city separately
 pivot_city <- function(city) {
-  return(pivot_longer(
-    city, cols = starts_with("X"),
-    names_to = "Year", values_to = "Value"
+  pivot_table <- pivot_longer(
+    city, cols = -c(city, country),
+    names_to = "year", values_to = "value"
   )
-  )
+  pivot_table$year <- as.numeric(pivot_table$year)
+  return(pivot_table)
 }
+
+
+# function to remove leading Na for each city
+remove_leading_na <- function(table) {
+  index <- 1  
+  # Loop through rows until a non-NA value is found
+  while (index <= nrow(table) && is.na(table[index, "value"])) {
+    index <- index + 1
+  }
+  return(table[index:nrow(table), ])
+}
+
+
+# Imputing Missing Values with interpolation
+impute_missing <- function(table) {
+  zoo_data <- zoo(table$value, order.by = table$year)
+  table$interpolated_value <- as.numeric(na.approx(zoo_data))
+  return(table)
+}
+
+# use stationary techniques for each city
+transform_to_stationary <- function(table) {
+  # Differencing
+  table$differenced_value <- c(
+    0,
+    diff(as.double(table[["interpolated_value"]]))
+  )
+  # Log Transformation
+  table$log_transformed_value <- log(
+    table$interpolated_value + 1
+  )  # Adding 1 to handle zero values
+  return(table)
+}
+
+# res <- train[1, ] %>% pivot_city %>% remove_leading_na %>% impute_missing %>% transform_to_stationary
+# res
+
 
 # do a time series analysis on the city
 time_series_analysis <- function(table){
@@ -95,7 +154,7 @@ time_series_analysis <- function(table){
 # add each result to data
 ...
 
-# fine tune with 2023 as target
+# fine tune with validation measures
 ...
 
 # use model to predict 2024
