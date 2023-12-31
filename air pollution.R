@@ -1,8 +1,10 @@
 library(data.table)
 library(DMwR2)
 library(dplyr)
+library(forecast)
 library(ggplot2)
 library(tidyr)
+library(tidyverse)
 library(zoo)
 
 
@@ -86,17 +88,17 @@ outlier_detection <- function(year) {
   column <- as.numeric(train[[year]])
   # Calculate lower and upper bounds
   lowband <- mean(column, na.rm = TRUE) - 3 * sd(column, na.rm = TRUE)
-  upperband <- mean(column, na.rm = TRUE) + 3 * sd(column, na.rm = TRUE)  
+  upperband <- mean(column, na.rm = TRUE) + 3 * sd(column, na.rm = TRUE)
   # Replace outliers with NA
   column[which(column > upperband | column < lowband)] <- NA
   return(column)
 }
 
 # Loop through each feature and apply outlier_detection function
-for (i in features) {
+for (i in as.character(features)) {
   train[[i]] <- outlier_detection(i)
 }
-colSums(is.na(train)) 
+colSums(is.na(train))
 
 
 # Pivot data for each city separately
@@ -112,7 +114,7 @@ pivot_city <- function(city) {
 
 # function to remove leading Na for each city
 remove_leading_na <- function(table) {
-  index <- 1  
+  index <- 1
   # Loop through rows until a non-NA value is found
   while (index <= nrow(table) && is.na(table[index, "value"])) {
     index <- index + 1
@@ -142,22 +144,29 @@ transform_to_stationary <- function(table) {
   return(table)
 }
 
-# res <- train[1, ] %>% pivot_city %>% remove_leading_na %>% impute_missing %>% transform_to_stationary
-# res
-
 
 # do a time series analysis on the city
-time_series_analysis <- function(table){
-  ...
+time_series_analysis <- function(table) {
+  ts_data <- ts(table$value, start = c(2017, 1), frequency = 1)
+  arima_model <- auto.arima(ts_data)
+  forecast_values <- forecast(arima_model, h = nrow(table))
+  return(forecast_values)
 }
+
+table <- train[3, ] %>%
+  pivot_city %>%
+  remove_leading_na %>%
+  impute_missing %>%
+  transform_to_stationary %>%
+  time_series_analysis
+
+table
+
 
 # add each result to data
 ...
 
 # fine tune with validation measures
-...
-
-# use model to predict 2024
 ...
 
 # use result to gain insight in Tableau
