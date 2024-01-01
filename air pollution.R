@@ -14,7 +14,7 @@ str(data)
 summary(data)
 # years after 2021 are acceptable for all countries (< 50% NA)
 
-train <- data[-smp, ]
+train <- data
 
 missing_values <- colSums(is.na(train)) # missing values count
 
