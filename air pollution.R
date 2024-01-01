@@ -14,11 +14,7 @@ str(data)
 summary(data)
 # years after 2021 are acceptable for all countries (< 50% NA)
 
-# train and test sampling
-set.seed(5432)
-smp <- sample(1:nrow(data), nrow(data) * 0.3, replace = FALSE)
 train <- data[-smp, ]
-test <- data[smp, ]
 
 missing_values <- colSums(is.na(train)) # missing values count
 
@@ -153,20 +149,11 @@ time_series_analysis <- function(table) {
   return(forecast_values)
 }
 
-table <- train[3, ] %>%
+results <- train[1, ] %>%
   pivot_city %>%
   remove_leading_na %>%
   impute_missing %>%
   transform_to_stationary %>%
   time_series_analysis
 
-table
-
-
-# add each result to data
-...
-
-# fine tune with validation measures
-...
-
-# use result to gain insight in Tableau
+results
